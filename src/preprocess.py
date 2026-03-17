@@ -4,7 +4,7 @@ preprocess.py
 Time-series preprocessing pipeline for the Zillow Metro ZHVI dataset.
 Processes ALL metro regions simultaneously.
 
-Provides an Object-Oriented pipeline for data ingestion, missing value
+Provides an pipeline for data ingestion, missing value
 imputation, feature engineering (log returns and lags), dataset splitting,
 and train-dependent transformations (target encoding and scaling).
 """
@@ -57,10 +57,10 @@ class DataPreprocessor:
 
     def __init__(
         self,
-        raw_path: pathlib.Path = RAW_FILE,
-        processed_dir: pathlib.Path = PROCESSED_DIR,
-        train_ratio: float = TRAIN_RATIO,
-        lag_periods: list[int] | None = None,
+        raw_path     : pathlib.Path     = RAW_FILE,
+        processed_dir: pathlib.Path     = PROCESSED_DIR,
+        train_ratio  : float            = TRAIN_RATIO,
+        lag_periods  : list[int] | None = None,
     ):
         """Initializes the DataPreprocessor.
 
@@ -70,13 +70,13 @@ class DataPreprocessor:
             train_ratio: Float indicating the split ratio for training data.
             lag_periods: List of lag periods. Defaults to [1, 2, 3, 6, 12].
         """
-        self.raw_path = raw_path
+        self.raw_path      = raw_path
         self.processed_dir = processed_dir
-        self.train_ratio = train_ratio
-        self.lag_periods = lag_periods or LAG_PERIODS
-        self.scaler = StandardScaler()
-        self.city_mean: pd.Series | None = None
-        self.global_mean: float | None = None
+        self.train_ratio   = train_ratio
+        self.lag_periods   = lag_periods or LAG_PERIODS
+        self.scaler        = StandardScaler()
+        self.city_mean  : pd.Series | None = None
+        self.global_mean: float     | None = None
 
     def load_data(self) -> pd.DataFrame:
         """Loads and filters raw data to retain only MSA rows.
@@ -93,8 +93,8 @@ class DataPreprocessor:
             
         print(f"    Raw shape : {df.shape}")
 
-        before = len(df)
-        df = df[df["RegionType"] == "msa"].reset_index(drop=True)
+        before  = len(df)
+        df      = df[df["RegionType"] == "msa"].reset_index(drop=True)
         dropped = before - len(df)
         if dropped:
             print(f"    Dropped {dropped} non-MSA row(s) ('United States' country aggregate)")
@@ -117,9 +117,9 @@ class DataPreprocessor:
         date_cols = [c for c in df.columns if c not in META_COLS]
 
         long = df[keep_meta + date_cols].melt(
-            id_vars=keep_meta,
+            id_vars   =keep_meta,
             value_vars=date_cols,
-            var_name="date",
+            var_name  ="date",
             value_name="price",
         )
         long["date"] = pd.to_datetime(long["date"])
@@ -185,7 +185,7 @@ class DataPreprocessor:
         )
 
         before = len(df)
-        df = df.dropna(subset=[TARGET_COL]).reset_index(drop=True)
+        df     = df.dropna(subset=[TARGET_COL]).reset_index(drop=True)
         print(f"    Dropped {before - len(df):,} first-observation rows (missing targets).")
 
         # 2. Compute Lags
@@ -204,7 +204,7 @@ class DataPreprocessor:
         # Drop rows with NaN from the maximum lag warm-up
         n_before = len(df)
         lag_cols = [f"lag_{l}" for l in self.lag_periods]
-        df = df.dropna(subset=lag_cols).reset_index(drop=True)
+        df       = df.dropna(subset=lag_cols).reset_index(drop=True)
         print(f"    Dropped {n_before - len(df):,} warm-up rows due to lag generation.")
 
         return df
@@ -220,11 +220,11 @@ class DataPreprocessor:
         """
         print(f"\n[5] Time-based split (train={self.train_ratio:.0%} / test={1-self.train_ratio:.0%})")
 
-        all_dates = df["date"].sort_values().unique()
+        all_dates   = df["date"].sort_values().unique()
         cutoff_date = all_dates[int(len(all_dates) * self.train_ratio)]
 
         train = df[df["date"] < cutoff_date].copy().reset_index(drop=True)
-        test = df[df["date"] >= cutoff_date].copy().reset_index(drop=True)
+        test  = df[df["date"] >= cutoff_date].copy().reset_index(drop=True)
 
         print(f"    Cutoff date : {pd.Timestamp(cutoff_date).date()}")
         print(f"    Train size  : {len(train):,} rows")
@@ -250,16 +250,16 @@ class DataPreprocessor:
         print("\n[6] Applying train-dependent transforms (City Encoding & Scaling) …")
 
         # City Encoding
-        self.city_mean = train.groupby("RegionID")[TARGET_COL].mean()
+        self.city_mean   = train.groupby("RegionID")[TARGET_COL].mean()
         self.global_mean = float(train[TARGET_COL].mean())
 
         train[CITY_ENC_COL] = train["RegionID"].map(self.city_mean)
-        test[CITY_ENC_COL] = test["RegionID"].map(self.city_mean).fillna(self.global_mean)
+        test [CITY_ENC_COL] = test["RegionID"].map(self.city_mean).fillna(self.global_mean)
 
         # Standard Scaling
         feature_cols = [f"lag_{l}" for l in self.lag_periods] + [CITY_ENC_COL]
         train[feature_cols] = self.scaler.fit_transform(train[feature_cols])
-        test[feature_cols] = self.scaler.transform(test[feature_cols])
+        test [feature_cols] = self.scaler.transform(test[feature_cols])
 
         return train, test
 
@@ -272,7 +272,7 @@ class DataPreprocessor:
         """
         self.processed_dir.mkdir(parents=True, exist_ok=True)
         train_path = self.processed_dir / "train.csv"
-        test_path = self.processed_dir / "test.csv"
+        test_path  = self.processed_dir / "test.csv"
 
         train.to_csv(train_path, index=False)
         test.to_csv(test_path, index=False)
@@ -289,7 +289,7 @@ class DataPreprocessor:
                   the scaler, and feature definitions.
         """
         print("=" * 60)
-        print("  Object-Oriented Preprocessing Pipeline — ALL metro regions")
+        print("  Preprocessing Pipeline — ALL metro regions")
         print("=" * 60)
 
         df = self.load_data()
@@ -306,8 +306,8 @@ class DataPreprocessor:
 
         X_train = train[feature_cols]
         y_train = train[TARGET_COL]
-        X_test = test[feature_cols]
-        y_test = test[TARGET_COL]
+        X_test  = test[feature_cols]
+        y_test  = test[TARGET_COL]
 
         print("\n[8] Final dataset shapes:")
         print(f"     X_train : {X_train.shape}")
@@ -323,15 +323,15 @@ class DataPreprocessor:
         print(f"\n✅ Pipeline complete. Features: {feature_cols}\n")
 
         return {
-            "X_train": X_train,
-            "X_test": X_test,
-            "y_train": y_train,
-            "y_test": y_test,
-            "scaler": self.scaler,
+            "X_train"     : X_train,
+            "X_test"      : X_test,
+            "y_train"     : y_train,
+            "y_test"      : y_test,
+            "scaler"      : self.scaler,
             "feature_cols": feature_cols,
-            "target_col": TARGET_COL,
-            "train_df": train,
-            "test_df": test,
+            "target_col"  : TARGET_COL,
+            "train_df"    : train,
+            "test_df"     : test,
         }
 
 
