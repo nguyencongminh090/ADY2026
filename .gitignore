@@ -60,7 +60,7 @@ processed_data.csv
 *.log
 *.nav
 *.out
-*.pdf
+# *.pdf
 *.snm
 *.synctex.gz
 *.toc
